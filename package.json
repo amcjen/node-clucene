@@ -2,7 +2,7 @@
   "name": "clucene",
   "description": "A CLucene native library for Node.js, for advanced information retrieval.",
   "main": "./clucene",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": "Eric Jennings (http://github.com/erictj)",
   "contributors": [
     "Temas Muldowney (http://github.com/temas)",

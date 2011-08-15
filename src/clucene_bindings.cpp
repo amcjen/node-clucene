@@ -335,6 +335,7 @@ public:
                 Local<Object> resultObject = Object::New();
                 // TODO:  This dup might be a leak
                 resultObject->Set(String::New("id"), String::New(STRDUP_TtoA(doc.get(_T("_id")))));
+                resultObject->Set(String::New("type"), String::New(STRDUP_TtoA(doc.get(_T("_type")))));
                 if (doc.getField(_T("content")) != NULL) {
                   resultObject->Set(String::New("content"), String::New(STRDUP_TtoA(doc.get(_T("content")))));
                 }

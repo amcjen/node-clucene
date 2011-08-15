@@ -1,0 +1,3 @@
+[submodule "dep/clucene"]
+	path = dep/clucene
+	url = git://clucene.git.sourceforge.net/gitroot/clucene/clucene

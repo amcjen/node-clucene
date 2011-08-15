@@ -1,0 +1,7 @@
+{
+    "name" : "clucene",
+    "version" : "0.0.1",
+    "description" : "A basic binding to CLucene",
+    "main" : "./clucene",
+    "scripts" : {"install" : "node-waf configure build"}
+}

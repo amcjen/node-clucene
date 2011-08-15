@@ -1,7 +1,31 @@
 {
-    "name" : "clucene",
-    "version" : "0.0.1",
-    "description" : "A basic binding to CLucene",
-    "main" : "./clucene",
-    "scripts" : {"install" : "node-waf configure build"}
+  "name": "clucene",
+  "description": "A CLucene native library for Node.js, for advanced information retrieval.",
+  "main": "./clucene",
+  "version": "0.0.1",
+  "author": "Eric Jennings (http://github.com/erictj)",
+  "contributors": [
+    "Temas Muldowney (http://github.com/temas)",
+    "Tyler Gillies (http://github.com/tjgillies)"
+  ],
+  "engines": { "node": ">= 0.4.9" },
+  "repository": {
+        "type": "git",
+        "url": "http://github.com/erictj/node-clucene.git"
+   },
+   "licenses": [
+     {
+        "type": "MIT"
+     }
+   ],
+   "bugs": {
+     "web" : "http://github.com/erictj/node-clucene/issues"
+   },
+   "scripts": {
+     "install": "node-waf configure build",
+     "test": "node-waf configure build; nodeunit test/"
+   },
+   "devDependencies": {
+     "nodeunit": ">=0.3.1"
+   }
 }

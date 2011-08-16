@@ -16,13 +16,17 @@ Indexing information into the index
 -------------------------------
 		var cl = require('clucene').CLucene;
 		var doc = new cl.Document();
+		
 		doc.addField('name', 'Eric Jennings', cl.Store.STORE_YES|cl.Store.INDEX_TOKENIZED);
 		doc.addField('timestamp', 'Eric Jennings', cl.Store.STORE_YES|cl.Store.INDEX_UNTOKENIZED);
+		
 		lucene.addDocument(docId, doc, '/path/where/to/store/index', function(err, indexTime, docsReplaced) {
 				if (err) {
 						console.log('Error indexing document: ' + err);
 				}
+				
 				console.log('Indexed document in ' + indexTime + ' ms');
+				
 				if (docsReplaced > 0) {
 						console.log('Updated ' + docsReplaced + ' existing document(s)');
 				}
@@ -44,6 +48,7 @@ Querying information out of the index
 				}
 				
 				console.log('Search results: ');
+				
 				for (var i=0; i<results.length; i++) {
 					console.log(results[i]);
 				}

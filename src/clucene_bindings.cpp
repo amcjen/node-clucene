@@ -165,8 +165,8 @@ public:
     static Handle<Value> AddDocumentAsync(const Arguments& args) {
         HandleScope scope;
 
-        REQ_OBJ_ARG(0);
-        REQ_STR_ARG(1);
+        REQ_STR_ARG(0);
+        REQ_OBJ_ARG(1);
         REQ_STR_ARG(2);
         REQ_FUN_ARG(3, callback);
 
@@ -175,9 +175,9 @@ public:
 
         index_baton_t* baton = new index_baton_t;
         baton->lucene = lucene;
-        baton->doc = ObjectWrap::Unwrap<LuceneDocument>(args[0]->ToObject());
         baton->docID = new v8::String::Utf8Value(args[0]);
-        baton->index = new v8::String::Utf8Value(args[1]);
+        baton->doc = ObjectWrap::Unwrap<LuceneDocument>(args[1]->ToObject());
+        baton->index = new v8::String::Utf8Value(args[2]);
         baton->callback = Persistent<Function>::New(callback);
         baton->error.clear();
         
@@ -291,12 +291,12 @@ public:
     };
     
     // args:
-    //   Document* docID
+    //   String* docID
     //   String* indexPath
     static Handle<Value> DeleteDocumentAsync(const Arguments& args) {
         HandleScope scope;
 
-        REQ_OBJ_ARG(0);
+        REQ_STR_ARG(0);
         REQ_STR_ARG(1);
         REQ_FUN_ARG(2, callback);
 

@@ -35,15 +35,15 @@ Indexing information into the index
 
 Querying information out of the index
 -------------------------------
-		var cl = require("./clucene").CLucene;
+		var cl = require('./clucene').CLucene;
 		var lucene = new cl.Lucene();
 		var util = require('util');
 		
-		var queryTerm = "name:Eri*"
+		var queryTerm = 'name:Eri*'
 
-		lucene.search("tweets.lucene", queryTerm, function(err, results) {
+		lucene.search('/path/where/index/stored', queryTerm, function(err, results) {
 				if (err) {
-						console.log("Search error: " + err);
+						console.log('Search error: ' + err);
 						return;
 				}
 				

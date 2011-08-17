@@ -30,6 +30,7 @@ exports['query newly-added document'] = function (test) {
     clucene.search(indexPath, '1', function(err, results) {
         test.equal(err, null);
         test.ok(is('Array', results));
+        console.error(results[0]);
         test.equal(results[0]._id, 1);
         test.equal(results[0].name, 'Eric Jennings');
         test.equal(results[0].timestamp, '1293765885000');

@@ -527,10 +527,10 @@ public:
             argv[0] = Null(); // Error arg, defaulting to no error
 
             Local<v8::Array> resultArray = v8::Array::New();
-            for (int i = 0; i < baton->docs.size(); ++i) {
+            for (uint32_t i = 0; i < baton->docs.size(); ++i) {
                 search_doc& doc(baton->docs[i]);
                 Local<Object> resultObject = Object::New();
-                for (int j = 0; j < doc.fields.size(); ++j) {
+                for (uint32_t j = 0; j < doc.fields.size(); ++j) {
                     search_field& field(doc.fields[i]);
                     resultObject->Set(String::New(field.key.c_str()), String::New(field.value.c_str()));
                 }

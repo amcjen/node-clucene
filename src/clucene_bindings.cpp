@@ -478,11 +478,18 @@ public:
                 Document& doc(hits->doc(i));
                 // {"id":"ab34", "score":1.0}
                 Local<Object> resultObject = Object::New();
-                // TODO:  This dup might be a leak
-                resultObject->Set(String::New("id"), String::New(STRDUP_TtoA(doc.get(_T("_id")))));
-                resultObject->Set(String::New("type"), String::New(STRDUP_TtoA(doc.get(_T("_type")))));
-                if (doc.getField(_T("content")) != NULL) {
-                  resultObject->Set(String::New("content"), String::New(STRDUP_TtoA(doc.get(_T("content")))));
+                Document::FieldsType* fields = const_cast<Document::FieldsType*>(doc.getFields());
+                DocumentFieldEnumeration fieldEnum(fields->begin(), fields->end());
+                while (fieldEnum.hasMoreElements()) {
+                    Field* curField = fieldEnum.nextElement();
+
+                    char* fieldName = STRDUP_TtoA(curField->name());
+                    char* fieldValue = STRDUP_TtoA(curField->stringValue());
+
+                    resultObject->Set(String::New(fieldName), String::New(fieldValue));
+
+                    free(fieldName);
+                    free(fieldValue);
                 }
                 resultObject->Set(String::New("score"), Number::New(hits->score(i)));
                 resultArray->Set(i, resultObject);

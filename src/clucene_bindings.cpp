@@ -479,8 +479,8 @@ public:
         IndexSearcher s(reader);
 
         try {
-            Query* q = QueryParser::parse(searchString, _T(""), &analyzer);
             TCHAR* searchString = STRDUP_AtoT(baton->search.c_str());
+            Query* q = QueryParser::parse(searchString, _T("_id"), &analyzer);
             Hits* hits = s.search(q);
             free(searchString);
             // Build the result array

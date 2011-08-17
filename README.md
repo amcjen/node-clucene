@@ -17,8 +17,8 @@ Indexing information into the index
 		var cl = require('clucene').CLucene;
 		var doc = new cl.Document();
 		
-		doc.addField('name', 'Eric Jennings', cl.Store.STORE_YES|cl.Index.INDEX_TOKENIZED);
-		doc.addField('timestamp', 'Eric Jennings', cl.Store.STORE_YES|cl.Index.INDEX_UNTOKENIZED);
+		doc.addField('name', 'Eric Jennings', cl.Store.STORE_YES|cl.Store.INDEX_TOKENIZED);
+		doc.addField('timestamp', 'Eric Jennings', cl.Store.STORE_YES|cl.Store.INDEX_UNTOKENIZED);
 		
 		lucene.addDocument(docId, doc, '/path/where/to/store/index', function(err, indexTime, docsReplaced) {
 				if (err) {
@@ -39,7 +39,7 @@ Querying information out of the index
 		var lucene = new cl.Lucene();
 		var util = require('util');
 		
-		var queryTerm = 'name:Eri*'
+		var queryTerm = 'name:Eri*';
 
 		lucene.search('/path/where/index/stored', queryTerm, function(err, results) {
 				if (err) {

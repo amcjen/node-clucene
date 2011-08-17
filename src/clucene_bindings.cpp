@@ -267,7 +267,7 @@ public:
 
         TryCatch tryCatch;
 
-        baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
+        baton->callback->Call(Context::GetCurrent()->Global(), 3, argv);
 
         if (tryCatch.HasCaught()) {
             FatalException(tryCatch);
@@ -393,7 +393,7 @@ public:
 
         TryCatch tryCatch;
 
-        baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
+        baton->callback->Call(Context::GetCurrent()->Global(), 3, argv);
 
         if (tryCatch.HasCaught()) {
             FatalException(tryCatch);
@@ -417,6 +417,9 @@ public:
         std::string error;
     };
 
+     // args:
+     //   String* indexPath
+     //   String* queryString
     static Handle<Value> SearchAsync(const Arguments& args) {
         HandleScope scope;
 
@@ -449,7 +452,7 @@ public:
         standard::StandardAnalyzer analyzer;
         IndexReader* reader = 0;
         try {
-            reader = IndexReader::open(*(*baton->index));
+          reader = IndexReader::open(*(*baton->index));
         } catch (CLuceneError& E) {
           baton->error.assign(E.what());
           return 0;
@@ -474,16 +477,28 @@ public:
             free(searchString);
             // Build the result array
             Local<v8::Array> resultArray = v8::Array::New();
+
             for (size_t i=0; i < hits->length(); i++) {
                 Document& doc(hits->doc(i));
                 // {"id":"ab34", "score":1.0}
                 Local<Object> resultObject = Object::New();
                 // TODO:  This dup might be a leak
-                resultObject->Set(String::New("id"), String::New(STRDUP_TtoA(doc.get(_T("_id")))));
+                
+                DocumentFieldEnumeration* fields = doc.getFields();
+                while (fields->hasMoreElements()) {
+                  Field* nextField = fields->nextElement();
+                  Local<String> fieldName = _T(nextField->name());
+                  Local<String> fieldValue = _T(nextField->stringValue());
+                  resultObject->Set(fieldName, fieldValue);
+                }
+                
+                /*
                 resultObject->Set(String::New("type"), String::New(STRDUP_TtoA(doc.get(_T("_type")))));
                 if (doc.getField(_T("content")) != NULL) {
                   resultObject->Set(String::New("content"), String::New(STRDUP_TtoA(doc.get(_T("content")))));
                 }
+                */
+
                 resultObject->Set(String::New("score"), Number::New(hits->score(i)));
                 resultArray->Set(i, resultObject);
             }

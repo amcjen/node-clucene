@@ -407,13 +407,27 @@ public:
     }
     
 
+    struct search_field
+    {
+        search_field(const std::string& key_, const std::string& value_) : key(key_), value(value_)
+        { }
+        std::string key;
+        std::string value;
+    };
+
+    struct search_doc
+    {
+        float score;
+        std::vector<search_field> fields;
+    };
+
     struct search_baton_t
     {
         Lucene* lucene;
-        v8::String::Utf8Value* index;
-        v8::String::Utf8Value* search;
+        std::string index;
+        std::string search;
+        std::vector<search_doc> docs;
         Persistent<Function> callback;
-        Persistent<v8::Array> results;
         std::string error;
     };
 
@@ -429,8 +443,8 @@ public:
 
         search_baton_t* baton = new search_baton_t;
         baton->lucene = lucene;
-        baton->index = new v8::String::Utf8Value(args[0]);
-        baton->search = new v8::String::Utf8Value(args[1]);
+        baton->index = *v8::String::Utf8Value(args[0]);
+        baton->search = *v8::String::Utf8Value(args[1]);
         baton->callback = Persistent<Function>::New(callback);
         baton->error.clear();
 
@@ -449,7 +463,7 @@ public:
         standard::StandardAnalyzer analyzer;
         IndexReader* reader = 0;
         try {
-            reader = IndexReader::open(*(*baton->index));
+            reader = IndexReader::open(baton->index.c_str());
         } catch (CLuceneError& E) {
           baton->error.assign(E.what());
           return 0;
@@ -465,19 +479,17 @@ public:
         IndexSearcher s(reader);
 
         try {
-            TCHAR* searchString = STRDUP_AtoT(*(*baton->search));
+            TCHAR* searchString = STRDUP_AtoT(baton->search.c_str());
             Query* q = QueryParser::parse(searchString, _T("_id"), &analyzer);
             Hits* hits = s.search(q);
-
-            HandleScope scope;
-            //_CLDELETE(q);
             free(searchString);
             // Build the result array
-            Local<v8::Array> resultArray = v8::Array::New();
             for (size_t i=0; i < hits->length(); i++) {
                 Document& doc(hits->doc(i));
                 // {"id":"ab34", "score":1.0}
-                Local<Object> resultObject = Object::New();
+                search_doc newDoc;
+                newDoc.score = hits->score(i);
+
                 Document::FieldsType* fields = const_cast<Document::FieldsType*>(doc.getFields());
                 DocumentFieldEnumeration fieldEnum(fields->begin(), fields->end());
                 while (fieldEnum.hasMoreElements()) {
@@ -486,15 +498,13 @@ public:
                     char* fieldName = STRDUP_TtoA(curField->name());
                     char* fieldValue = STRDUP_TtoA(curField->stringValue());
 
-                    resultObject->Set(String::New(fieldName), String::New(fieldValue));
+                    newDoc.fields.push_back(search_field(fieldName, fieldValue));
 
                     free(fieldName);
                     free(fieldValue);
                 }
-                resultObject->Set(String::New("score"), Number::New(hits->score(i)));
-                resultArray->Set(i, resultObject);
+                baton->docs.push_back(newDoc);
             }
-            baton->results = Persistent<v8::Array>::New(resultArray);
         } catch (CLuceneError& E) {
           baton->error.assign(E.what());
         } catch(...) {
@@ -515,7 +525,20 @@ public:
 
         if (baton->error.empty()) {
             argv[0] = Null(); // Error arg, defaulting to no error
-            argv[1] = baton->results;
+
+            Local<v8::Array> resultArray = v8::Array::New();
+            for (int i = 0; i < baton->docs.size(); ++i) {
+                search_doc& doc(baton->docs[i]);
+                Local<Object> resultObject = Object::New();
+                for (int j = 0; j < doc.fields.size(); ++j) {
+                    search_field& field(doc.fields[i]);
+                    resultObject->Set(String::New(field.key.c_str()), String::New(field.value.c_str()));
+                }
+                resultObject->Set(String::New("score"), Number::New(doc.score));
+                resultArray->Set(i, resultObject);
+            }
+
+            argv[1] = resultArray;
         } else {
             argv[0] = String::New(baton->error.c_str());
             argv[1] = Null();
@@ -530,10 +553,7 @@ public:
         }
         
         baton->callback.Dispose();
-        if (!baton->results.IsEmpty()) baton->results.Dispose();
 
-        delete baton->index;
-        delete baton->search;
         delete baton;
 
         return 0;

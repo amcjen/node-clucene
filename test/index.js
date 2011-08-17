@@ -85,12 +85,21 @@ exports['query by wildcard'] = function (test) {
     });
 };
 
-exports['cleanup'] = function (test) {
+exports['delete document'] = function (test) {
+    clucene.deleteDocument('1', indexPath, function(err, indexTime, docsDeleted) {
+        test.equal(err, null);
+        test.ok(is('Number', indexTime));
+        test.equal(docsDeleted, 1);
+        test.done();
+    });
+};
+
+exports['cleanup index'] = function (test) {
     if (path.existsSync(indexPath)) {
         wrench.rmdirSyncRecursive(indexPath);
     }
     test.done();
-}
+};
 
 function is(type, obj) {
     var clas = Object.prototype.toString.call(obj).slice(8, -1);

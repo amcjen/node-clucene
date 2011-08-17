@@ -267,7 +267,7 @@ public:
 
         TryCatch tryCatch;
 
-        baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
+        baton->callback->Call(Context::GetCurrent()->Global(), 3, argv);
 
         if (tryCatch.HasCaught()) {
             FatalException(tryCatch);
@@ -466,7 +466,7 @@ public:
 
         try {
             TCHAR* searchString = STRDUP_AtoT(*(*baton->search));
-            Query* q = QueryParser::parse(searchString, _T(""), &analyzer);
+            Query* q = QueryParser::parse(searchString, _T("_id"), &analyzer);
             Hits* hits = s.search(q);
 
             HandleScope scope;

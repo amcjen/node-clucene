@@ -531,7 +531,7 @@ public:
                 search_doc& doc(baton->docs[i]);
                 Local<Object> resultObject = Object::New();
                 for (uint32_t j = 0; j < doc.fields.size(); ++j) {
-                    search_field& field(doc.fields[i]);
+                    search_field& field(doc.fields[j]);
                     resultObject->Set(String::New(field.key.c_str()), String::New(field.value.c_str()));
                 }
                 resultObject->Set(String::New("score"), Number::New(doc.score));

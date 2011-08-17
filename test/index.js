@@ -16,6 +16,7 @@ exports['add new document'] = function (test) {
     var docId = '1';
 
     doc.addField('name', 'Eric Jennings', cl.STORE_YES|cl.INDEX_TOKENIZED);
+    doc.addField('_type', 'contact', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
     doc.addField('timestamp', '1293765885000', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
 
     clucene.addDocument(docId, doc, indexPath, function(err, indexTime, docsReplaced) {
@@ -33,6 +34,7 @@ exports['query newly-added document'] = function (test) {
         test.ok(is('Number', searchTime));
         test.equal(results[0]._id, 1);
         test.equal(results[0].name, 'Eric Jennings');
+        test.equal(results[0]._type, 'contact');
         test.equal(results[0].timestamp, '1293765885000');
         test.done();
     });

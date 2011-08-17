@@ -426,6 +426,7 @@ public:
         Lucene* lucene;
         std::string index;
         std::string search;
+        uint64_t searchTime;
         std::vector<search_doc> docs;
         Persistent<Function> callback;
         std::string error;
@@ -459,7 +460,8 @@ public:
     static int EIO_Search(eio_req* req) 
     {
         search_baton_t* baton = static_cast<search_baton_t*>(req->data);
-
+        uint64_t start = Misc::currentTimeMillis();
+        
         standard::StandardAnalyzer analyzer;
         IndexReader* reader = 0;
         try {
@@ -505,6 +507,7 @@ public:
                 }
                 baton->docs.push_back(newDoc);
             }
+            baton->searchTime = (Misc::currentTimeMillis() - start);
         } catch (CLuceneError& E) {
           baton->error.assign(E.what());
         } catch(...) {
@@ -521,7 +524,7 @@ public:
         ev_unref(EV_DEFAULT_UC);
         baton->lucene->Unref();
 
-        Handle<Value> argv[2];
+        Handle<Value> argv[3];
 
         if (baton->error.empty()) {
             argv[0] = Null(); // Error arg, defaulting to no error
@@ -539,14 +542,16 @@ public:
             }
 
             argv[1] = resultArray;
+            argv[2] = v8::Integer::NewFromUnsigned((uint32_t)baton->searchTime);
         } else {
             argv[0] = String::New(baton->error.c_str());
             argv[1] = Null();
+            argv[2] = Null();
         }
 
         TryCatch tryCatch;
 
-        baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
+        baton->callback->Call(Context::GetCurrent()->Global(), 3, argv);
 
         if (tryCatch.HasCaught()) {
             FatalException(tryCatch);

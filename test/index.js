@@ -27,9 +27,10 @@ exports['add new document'] = function (test) {
 };
 
 exports['query newly-added document'] = function (test) {
-    clucene.search(indexPath, '1', function(err, results) {
+    clucene.search(indexPath, '1', function(err, results, searchTime) {
         test.equal(err, null);
         test.ok(is('Array', results));
+        test.ok(is('Number', searchTime));
         test.equal(results[0]._id, 1);
         test.equal(results[0].name, 'Eric Jennings');
         test.equal(results[0].timestamp, '1293765885000');
@@ -53,9 +54,10 @@ exports['update existing document'] = function (test) {
 };
 
 exports['query updated document'] = function (test) {
-    clucene.search(indexPath, '1', function(err, results) {
+    clucene.search(indexPath, '1', function(err, results, searchTime) {
         test.equal(err, null);
         test.ok(is('Array', results));
+        test.ok(is('Number', searchTime));
         test.equal(results[0]._id, 1);
         test.equal(results[0].name, 'Thomas Anderson');
         test.equal(results[0].timestamp, '129555555555555');
@@ -64,9 +66,10 @@ exports['query updated document'] = function (test) {
 };
 
 exports['query by full field name'] = function (test) {
-    clucene.search(indexPath, 'name:"Thomas"', function(err, results) {
+    clucene.search(indexPath, 'name:"Thomas"', function(err, results, searchTime) {
         test.equal(err, null);
         test.ok(is('Array', results));
+        test.ok(is('Number', searchTime));
         test.equal(results[0]._id, 1);
         test.equal(results[0].name, 'Thomas Anderson');
         test.equal(results[0].timestamp, '129555555555555');
@@ -75,9 +78,10 @@ exports['query by full field name'] = function (test) {
 };
 
 exports['query by wildcard'] = function (test) {
-    clucene.search(indexPath, 'name:Thom*', function(err, results) {
+    clucene.search(indexPath, 'name:Thom*', function(err, results, searchTime) {
         test.equal(err, null);
         test.ok(is('Array', results));
+        test.ok(is('Number', searchTime));
         test.equal(results[0]._id, 1);
         test.equal(results[0].name, 'Thomas Anderson');
         test.equal(results[0].timestamp, '129555555555555');

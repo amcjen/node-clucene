@@ -80,21 +80,26 @@ protected:
         REQ_STR_ARG(0);
         REQ_STR_ARG(1);
         REQ_NUM_ARG(2);
+        
+        fprintf(stdout, "Going to add a field\n");
 
         LuceneDocument* docWrapper = ObjectWrap::Unwrap<LuceneDocument>(args.This());
 
-        TCHAR key[CL_MAX_DIR];
-        STRCPY_AtoT(key, *String::Utf8Value(args[0]), CL_MAX_DIR);
-
-        TCHAR value[CL_MAX_DIR];
-        STRCPY_AtoT(value, *String::Utf8Value(args[1]), CL_MAX_DIR);
+        TCHAR* key = STRDUP_AtoT(*String::Utf8Value(args[0]));
+        TCHAR* value = STRDUP_AtoT(*String::Utf8Value(args[1]));
 
         try {
             Field* field = new Field(key, value, args[2]->Int32Value());
+            delete key;
+            delete value;
             docWrapper->document()->add(*field);
         } catch (CLuceneError& E) {
+            delete key;
+            delete value;
             return scope.Close(ThrowException(Exception::TypeError(String::New(E.what()))));
         } catch(...) {
+            delete key;
+            delete value;
             return scope.Close(ThrowException(Exception::Error(String::New("Unknown internal error while adding field"))));
         }
         

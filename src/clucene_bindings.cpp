@@ -81,8 +81,6 @@ protected:
         REQ_STR_ARG(1);
         REQ_NUM_ARG(2);
         
-        fprintf(stdout, "Going to add a field\n");
-
         LuceneDocument* docWrapper = ObjectWrap::Unwrap<LuceneDocument>(args.This());
 
         TCHAR* key = STRDUP_AtoT(*String::Utf8Value(args[0]));

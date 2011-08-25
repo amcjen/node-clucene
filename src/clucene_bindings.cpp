@@ -220,13 +220,14 @@ public:
           // replace document._id if it's also set in the document itself
           TCHAR key[CL_MAX_DIR];
           STRCPY_AtoT(key, "_id", CL_MAX_DIR);
-          TCHAR value[CL_MAX_DIR];
-          STRCPY_AtoT(value, *(*baton->docID), CL_MAX_DIR);
+          TCHAR* value = STRDUP_AtoT(**baton->docID);
           baton->doc->document()->removeFields(key);
           baton->doc->document()->add(*new Field(key, value, Field::STORE_YES|Field::INDEX_UNTOKENIZED));
           
           baton->docsDeleted = writer->deleteDocuments(new Term(key, value));
           writer->addDocument(baton->doc->document());
+
+          delete value;
           
           // Make the index use as little files as possible, and optimize it
           writer->setUseCompoundFile(true);

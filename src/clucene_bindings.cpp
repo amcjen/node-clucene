@@ -134,6 +134,7 @@ public:
 
         NODE_SET_PROTOTYPE_METHOD(s_ct, "addDocument", AddDocumentAsync);
         NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteDocument", DeleteDocumentAsync);
+        NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteDocumentsByType", DeleteDocumentsByTypeAsync);
         NODE_SET_PROTOTYPE_METHOD(s_ct, "search", SearchAsync);
 
         target->Set(String::NewSymbol("Lucene"), s_ct->GetFunction());
@@ -405,6 +406,130 @@ public:
 
         baton->callback.Dispose();
         delete baton->docID;
+        delete baton->index;
+        delete baton;
+        return 0;
+    }
+    
+    struct indexdeletebytype_baton_t {
+        Lucene* lucene;         
+        v8::String::Utf8Value* type;
+        v8::String::Utf8Value* index;
+        Persistent<Function> callback;
+        uint64_t indexTime;
+        uint64_t docsDeleted;
+        std::string error;
+    };
+    
+    // args:
+    //   String* docID
+    //   String* indexPath
+    static Handle<Value> DeleteDocumentsByTypeAsync(const Arguments& args) {
+        HandleScope scope;
+
+        REQ_STR_ARG(0);
+        REQ_STR_ARG(1);
+        REQ_FUN_ARG(2, callback);
+
+        REQ_OBJ_TYPE(args.This(), Lucene);
+        Lucene* lucene = ObjectWrap::Unwrap<Lucene>(args.This());
+
+        indexdeletebytype_baton_t* baton = new indexdeletebytype_baton_t;
+        baton->lucene = lucene;
+        baton->type = new v8::String::Utf8Value(args[0]);
+        baton->index = new v8::String::Utf8Value(args[1]);
+        baton->callback = Persistent<Function>::New(callback);
+        baton->error.clear();
+        lucene->Ref();
+
+        eio_custom(EIO_DeleteDocumentsByType, EIO_PRI_DEFAULT, EIO_AfterDeleteDocumentsByType, baton);
+        ev_ref(EV_DEFAULT_UC);
+
+        return scope.Close(Undefined());
+    }
+        
+    
+    static int EIO_DeleteDocumentsByType(eio_req* req) {
+        indexdeletebytype_baton_t* baton = static_cast<indexdeletebytype_baton_t*>(req->data);
+
+        lucene::analysis::standard::StandardAnalyzer an;
+        IndexModifier* writer = 0;
+        bool writerOpen = false;
+        
+        try {
+          bool needsCreation = true;
+          if (IndexReader::indexExists(*(*baton->index))) {
+              if (IndexReader::isLocked(*(*baton->index))) {
+                  IndexReader::unlock(*(*baton->index));
+              }
+              needsCreation = false;
+          }
+          writer = new IndexModifier(*(*baton->index), &an, needsCreation);
+          writerOpen = true;
+        
+          // To bypass a possible exception (we have no idea what we will be indexing...)
+          writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
+          // Turn this off to make indexing faster; we'll turn it on later before optimizing
+          writer->setUseCompoundFile(false);
+          uint64_t start = Misc::currentTimeMillis();
+          
+          TCHAR key[CL_MAX_DIR];
+          STRCPY_AtoT(key, "_type", CL_MAX_DIR);
+          TCHAR value[CL_MAX_DIR];
+          STRCPY_AtoT(value, *(*baton->type), CL_MAX_DIR);
+          baton->docsDeleted = writer->deleteDocuments(new Term(key, value));
+          
+          // Make the index use as little files as possible, and optimize it
+          writer->setUseCompoundFile(true);
+          writer->optimize();
+
+          baton->indexTime = (Misc::currentTimeMillis() - start);
+        } catch (CLuceneError& E) {
+          baton->error.assign(E.what());
+        } catch(...) {
+          baton->error = "Got an unknown exception";
+        }
+        
+        // Close and clean up
+        if (writerOpen == true) {
+           writer->close();
+        }       
+        
+        delete writer;
+        //(*(*baton->index), &an, false);
+
+        return 0;
+    }
+
+    static int EIO_AfterDeleteDocumentsByType(eio_req* req) {
+        HandleScope scope;
+        indexdeletebytype_baton_t* baton = static_cast<indexdeletebytype_baton_t*>(req->data);
+        ev_unref(EV_DEFAULT_UC);
+        baton->lucene->Unref();
+
+        Handle<Value> argv[3];
+
+        if (!baton->error.empty()) {
+            argv[0] = v8::String::New(baton->error.c_str());
+            argv[1] = Undefined();
+            argv[2] = Undefined();
+        }
+        else {
+            argv[0] = Undefined();
+            argv[1] = v8::Integer::NewFromUnsigned((uint32_t)baton->indexTime);
+            argv[2] = v8::Integer::NewFromUnsigned((uint32_t)baton->docsDeleted);
+        }
+
+        TryCatch tryCatch;
+
+        baton->callback->Call(Context::GetCurrent()->Global(), 3, argv);
+
+        if (tryCatch.HasCaught()) {
+            FatalException(tryCatch);
+        }
+
+        baton->callback.Dispose();
+        delete baton->type;
         delete baton->index;
         delete baton;
         return 0;

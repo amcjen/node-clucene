@@ -104,11 +104,14 @@ exports['add doc1 for type test'] = function (test) {
     var doc = new cl.Document();
     var docId = '10';
 
+    console.log("HERE");
     doc.addField('name', 'Eric Jennings', cl.STORE_YES|cl.INDEX_TOKENIZED);
     doc.addField('_type', 'contact', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
     doc.addField('timestamp', '1293765885000', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
 
+    console.log("ADDING", docId, doc, indexPath);
     clucene.addDocument(docId, doc, indexPath, function(err, indexTime, docsReplaced) {
+        console.log("Added");
         test.equal(err, null);
         test.ok(is('Number', indexTime));
         test.equal(docsReplaced, 0);

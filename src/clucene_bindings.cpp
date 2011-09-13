@@ -60,6 +60,10 @@ public:
 
     void setDocument(Document* doc) { doc_ = doc; }
     Document* document() const { return doc_; }
+
+    void Ref() { ObjectWrap::Ref(); }
+    void Unref() { ObjectWrap::Unref(); }
+
 protected:
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
@@ -186,6 +190,7 @@ public:
         baton->error.clear();
         
         lucene->Ref();
+        baton->doc->Ref();
 
         eio_custom(EIO_Index, EIO_PRI_DEFAULT, EIO_AfterIndex, baton);
         ev_ref(EV_DEFAULT_UC);
@@ -256,6 +261,7 @@ public:
         index_baton_t* baton = static_cast<index_baton_t*>(req->data);
         ev_unref(EV_DEFAULT_UC);
         baton->lucene->Unref();
+        baton->doc->Unref();
 
         Handle<Value> argv[3];
 

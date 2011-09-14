@@ -124,7 +124,6 @@ class Lucene : public ObjectWrap {
     
 private:
     int m_count;
-
 public:
 
     static void Init(Handle<Object> target) {
@@ -140,13 +139,14 @@ public:
         NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteDocument", DeleteDocumentAsync);
         NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteDocumentsByType", DeleteDocumentsByTypeAsync);
         NODE_SET_PROTOTYPE_METHOD(s_ct, "search", SearchAsync);
+        NODE_SET_PROTOTYPE_METHOD(s_ct, "optimize", OptimizeAsync);
 
         target->Set(String::NewSymbol("Lucene"), s_ct->GetFunction());
     }
 
     Lucene() : ObjectWrap(), m_count(0) {}
 
-    ~Lucene() {}
+    ~Lucene() { }
 
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
@@ -162,7 +162,7 @@ public:
         v8::String::Utf8Value* index;
         Persistent<Function> callback;
         uint64_t indexTime;
-        uint64_t docsDeleted;
+        int32_t docCount;
         std::string error;
     };
     
@@ -203,8 +203,7 @@ public:
         index_baton_t* baton = static_cast<index_baton_t*>(req->data);
 
         lucene::analysis::standard::StandardAnalyzer an;
-        IndexModifier* writer = 0;
-        bool writerOpen = false;
+        IndexWriter* writer = 0;
         
         try {
           bool needsCreation = true;
@@ -214,30 +213,37 @@ public:
               }
               needsCreation = false;
           }
-          writer = new IndexModifier(*(*baton->index), &an, needsCreation);
-          writerOpen = true;
-        
+          
+          // We keep shared instances of the index modifiers because you can only have one per index
+          writer = new IndexWriter(*(*baton->index), &an, needsCreation);
+
           // To bypass a possible exception (we have no idea what we will be indexing...)
           writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
           // Turn this off to make indexing faster; we'll turn it on later before optimizing
-          writer->setUseCompoundFile(false);
+          //writer->setUseCompoundFile(false);
           uint64_t start = Misc::currentTimeMillis();
 
           // replace document._id if it's also set in the document itself
           TCHAR key[CL_MAX_DIR];
           STRCPY_AtoT(key, "_id", CL_MAX_DIR);
-          TCHAR* value = STRDUP_AtoT(**baton->docID);
+          TCHAR* value = STRDUP_AtoT(*(*baton->docID));
           baton->doc->document()->removeFields(key);
-          baton->doc->document()->add(*new Field(key, value, Field::STORE_YES|Field::INDEX_UNTOKENIZED));
+          Field* field = new Field(key, value, Field::STORE_YES|Field::INDEX_UNTOKENIZED);
+          baton->doc->document()->add(*field);
           
-          baton->docsDeleted = writer->deleteDocuments(new Term(key, value));
-          writer->addDocument(baton->doc->document());
+          Term* term = new Term(key, value);
+          writer->updateDocument(term, baton->doc->document());
+          _CLDECDELETE(term);
 
           delete value;
           
           // Make the index use as little files as possible, and optimize it
-          writer->setUseCompoundFile(true);
-          writer->optimize();
+          
+          //writer->optimize();
+
+          writer->close();
+          delete writer;
+          writer = 0;
 
           baton->indexTime = (Misc::currentTimeMillis() - start);
         } catch (CLuceneError& E) {
@@ -246,11 +252,6 @@ public:
           baton->error = "Got an unknown exception";
         }
         
-        // Close and clean up
-        if (writerOpen == true) {
-           writer->close();
-        }       
-        delete writer;
         //(*(*baton->index), &an, false);
 
         return 0;
@@ -263,22 +264,20 @@ public:
         baton->lucene->Unref();
         baton->doc->Unref();
 
-        Handle<Value> argv[3];
+        Handle<Value> argv[2];
 
         if (!baton->error.empty()) {
             argv[0] = v8::String::New(baton->error.c_str());
             argv[1] = Undefined();
-            argv[2] = Undefined();
         }
         else {
             argv[0] = Undefined();
             argv[1] = v8::Integer::NewFromUnsigned((uint32_t)baton->indexTime);
-            argv[2] = v8::Integer::NewFromUnsigned((uint32_t)baton->docsDeleted);
         }
 
         TryCatch tryCatch;
 
-        baton->callback->Call(Context::GetCurrent()->Global(), 3, argv);
+        baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
 
         if (tryCatch.HasCaught()) {
             FatalException(tryCatch);
@@ -334,8 +333,7 @@ public:
         indexdelete_baton_t* baton = static_cast<indexdelete_baton_t*>(req->data);
 
         lucene::analysis::standard::StandardAnalyzer an;
-        IndexModifier* writer = 0;
-        bool writerOpen = false;
+        IndexWriter* writer = 0;
         
         try {
           bool needsCreation = true;
@@ -345,13 +343,10 @@ public:
               }
               needsCreation = false;
           }
-          writer = new IndexModifier(*(*baton->index), &an, needsCreation);
-          writerOpen = true;
+          writer = new IndexWriter(*(*baton->index), &an, needsCreation);
         
           // To bypass a possible exception (we have no idea what we will be indexing...)
           writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
-          // Turn this off to make indexing faster; we'll turn it on later before optimizing
-          writer->setUseCompoundFile(false);
           uint64_t start = Misc::currentTimeMillis();
           
           TCHAR key[CL_MAX_DIR];
@@ -359,11 +354,7 @@ public:
           TCHAR value[CL_MAX_DIR];
           STRCPY_AtoT(value, *(*baton->docID), CL_MAX_DIR);
           
-          baton->docsDeleted = writer->deleteDocuments(new Term(key, value));
-          
-          // Make the index use as little files as possible, and optimize it
-          writer->setUseCompoundFile(true);
-          writer->optimize();
+          writer->deleteDocuments(new Term(key, value));
 
           baton->indexTime = (Misc::currentTimeMillis() - start);
         } catch (CLuceneError& E) {
@@ -373,11 +364,10 @@ public:
         }
         
         // Close and clean up
-        if (writerOpen == true) {
-           writer->close();
-        }       
+       writer->close();
         
         delete writer;
+        writer = 0;
         //(*(*baton->index), &an, false);
 
         return 0;
@@ -389,22 +379,20 @@ public:
         ev_unref(EV_DEFAULT_UC);
         baton->lucene->Unref();
 
-        Handle<Value> argv[3];
+        Handle<Value> argv[2];
 
         if (!baton->error.empty()) {
             argv[0] = v8::String::New(baton->error.c_str());
             argv[1] = Undefined();
-            argv[2] = Undefined();
         }
         else {
             argv[0] = Undefined();
             argv[1] = v8::Integer::NewFromUnsigned((uint32_t)baton->indexTime);
-            argv[2] = v8::Integer::NewFromUnsigned((uint32_t)baton->docsDeleted);
         }
 
         TryCatch tryCatch;
 
-        baton->callback->Call(Context::GetCurrent()->Global(), 3, argv);
+        baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
 
         if (tryCatch.HasCaught()) {
             FatalException(tryCatch);
@@ -423,7 +411,6 @@ public:
         v8::String::Utf8Value* index;
         Persistent<Function> callback;
         uint64_t indexTime;
-        uint64_t docsDeleted;
         std::string error;
     };
     
@@ -459,8 +446,7 @@ public:
         indexdeletebytype_baton_t* baton = static_cast<indexdeletebytype_baton_t*>(req->data);
 
         lucene::analysis::standard::StandardAnalyzer an;
-        IndexModifier* writer = 0;
-        bool writerOpen = false;
+        IndexWriter* writer = 0;
         
         try {
           bool needsCreation = true;
@@ -470,24 +456,17 @@ public:
               }
               needsCreation = false;
           }
-          writer = new IndexModifier(*(*baton->index), &an, needsCreation);
-          writerOpen = true;
+          writer = new IndexWriter(*(*baton->index), &an, needsCreation);
         
           // To bypass a possible exception (we have no idea what we will be indexing...)
           writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
-          // Turn this off to make indexing faster; we'll turn it on later before optimizing
-          writer->setUseCompoundFile(false);
           uint64_t start = Misc::currentTimeMillis();
           
           TCHAR key[CL_MAX_DIR];
           STRCPY_AtoT(key, "_type", CL_MAX_DIR);
           TCHAR value[CL_MAX_DIR];
           STRCPY_AtoT(value, *(*baton->type), CL_MAX_DIR);
-          baton->docsDeleted = writer->deleteDocuments(new Term(key, value));
-          
-          // Make the index use as little files as possible, and optimize it
-          writer->setUseCompoundFile(true);
-          writer->optimize();
+          writer->deleteDocuments(new Term(key, value));
 
           baton->indexTime = (Misc::currentTimeMillis() - start);
         } catch (CLuceneError& E) {
@@ -497,9 +476,7 @@ public:
         }
         
         // Close and clean up
-        if (writerOpen == true) {
-           writer->close();
-        }       
+        writer->close();
         
         delete writer;
         //(*(*baton->index), &an, false);
@@ -513,22 +490,20 @@ public:
         ev_unref(EV_DEFAULT_UC);
         baton->lucene->Unref();
 
-        Handle<Value> argv[3];
+        Handle<Value> argv[2];
 
         if (!baton->error.empty()) {
             argv[0] = v8::String::New(baton->error.c_str());
             argv[1] = Undefined();
-            argv[2] = Undefined();
         }
         else {
             argv[0] = Undefined();
             argv[1] = v8::Integer::NewFromUnsigned((uint32_t)baton->indexTime);
-            argv[2] = v8::Integer::NewFromUnsigned((uint32_t)baton->docsDeleted);
         }
 
         TryCatch tryCatch;
 
-        baton->callback->Call(Context::GetCurrent()->Global(), 3, argv);
+        baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
 
         if (tryCatch.HasCaught()) {
             FatalException(tryCatch);
@@ -592,7 +567,7 @@ public:
         return scope.Close(Undefined());
     }
 
-    static int EIO_Search(eio_req* req) 
+    static int EIO_Search(eio_req* req)
     {
         search_baton_t* baton = static_cast<search_baton_t*>(req->data);
         uint64_t start = Misc::currentTimeMillis();
@@ -694,6 +669,100 @@ public:
         
         baton->callback.Dispose();
 
+        delete baton;
+
+        return 0;
+    }
+
+    struct optimize_baton_t
+    {
+        Lucene* lucene;
+        Persistent<Function> callback;
+        std::string index;
+        std::string error;
+    };
+
+    static Handle<Value> OptimizeAsync(const Arguments& args)
+    {
+        HandleScope scope;
+
+        REQ_STR_ARG(0);
+        REQ_FUN_ARG(1, callback);
+
+        REQ_OBJ_TYPE(args.This(), Lucene);
+        Lucene* lucene = ObjectWrap::Unwrap<Lucene>(args.This());
+
+        optimize_baton_t* baton = new optimize_baton_t;
+        baton->lucene = lucene;
+        baton->callback = Persistent<Function>::New(callback);
+        baton->index = *v8::String::Utf8Value(args[0]);
+        baton->error.clear();
+
+        lucene->Ref();
+
+        eio_custom(EIO_Optimize, EIO_PRI_DEFAULT, EIO_AfterOptimize, baton);
+        ev_ref(EV_DEFAULT_UC);
+
+        return scope.Close(Undefined());
+    }
+
+    static int EIO_Optimize(eio_req* req)
+    {
+        optimize_baton_t* baton = static_cast<optimize_baton_t*>(req->data);
+
+        try {
+          
+        bool needsCreation = true;
+        if (IndexReader::indexExists(baton->index.c_str())) {
+            if (IndexReader::isLocked(baton->index.c_str())) {
+                IndexReader::unlock(baton->index.c_str());
+            }
+            needsCreation = false;
+        }
+        
+        standard::StandardAnalyzer an;
+        IndexWriter* writer = new IndexWriter(baton->index.c_str(), &an, needsCreation);
+        writer->setUseCompoundFile(true);
+        writer->optimize();
+
+        writer->close();
+        
+        } catch (CLuceneError& E) {
+          baton->error.assign(E.what());
+        } catch(...) {
+          baton->error = "Got an unknown exception";
+        }
+
+        return 0;
+    }
+
+    static int EIO_AfterOptimize(eio_req* req)
+    {
+        HandleScope scope;
+
+        optimize_baton_t* baton = static_cast<optimize_baton_t*>(req->data);
+        
+        ev_unref(EV_DEFAULT_UC);
+        baton->lucene->Unref();
+
+        Handle<Value> argv[1];
+
+        if (!baton->error.empty()) {
+            argv[0] = v8::String::New(baton->error.c_str());
+        }
+        else {
+            argv[0] = Undefined();
+        }
+
+        TryCatch tryCatch;
+
+        baton->callback->Call(Context::GetCurrent()->Global(), 1, argv);
+
+        if (tryCatch.HasCaught()) {
+            FatalException(tryCatch);
+        }
+
+        baton->callback.Dispose();
         delete baton;
 
         return 0;

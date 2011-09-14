@@ -19,10 +19,9 @@ exports['add new document'] = function (test) {
     doc.addField('_type', 'contact', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
     doc.addField('timestamp', '1293765885000', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
 
-    clucene.addDocument(docId, doc, indexPath, function(err, indexTime, docsReplaced) {
+    clucene.addDocument(docId, doc, indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
-        test.equal(docsReplaced, 0);
         test.done();
     });
 };
@@ -47,10 +46,9 @@ exports['update existing document'] = function (test) {
     doc.addField('name', 'Thomas Anderson', cl.STORE_YES|cl.INDEX_TOKENIZED);
     doc.addField('timestamp', '129555555555555', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
 
-    clucene.addDocument(docId, doc, indexPath, function(err, indexTime, docsReplaced) {
+    clucene.addDocument(docId, doc, indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
-        test.equal(docsReplaced, 1);
         test.done();
     });
 };
@@ -92,10 +90,9 @@ exports['query by wildcard'] = function (test) {
 };
 
 exports['delete document'] = function (test) {
-    clucene.deleteDocument('1', indexPath, function(err, indexTime, docsDeleted) {
+    clucene.deleteDocument('1', indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
-        test.equal(docsDeleted, 1);
         test.done();
     });
 };
@@ -104,17 +101,13 @@ exports['add doc1 for type test'] = function (test) {
     var doc = new cl.Document();
     var docId = '10';
 
-    console.log("HERE");
     doc.addField('name', 'Eric Jennings', cl.STORE_YES|cl.INDEX_TOKENIZED);
     doc.addField('_type', 'contact', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
     doc.addField('timestamp', '1293765885000', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
 
-    console.log("ADDING", docId, doc, indexPath);
-    clucene.addDocument(docId, doc, indexPath, function(err, indexTime, docsReplaced) {
-        console.log("Added");
+    clucene.addDocument(docId, doc, indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
-        test.equal(docsReplaced, 0);
         test.done();
     });
 };
@@ -127,10 +120,9 @@ exports['add doc2 for type test'] = function (test) {
     doc.addField('_type', 'contact', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
     doc.addField('timestamp', '1293765885000', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
 
-    clucene.addDocument(docId, doc, indexPath, function(err, indexTime, docsReplaced) {
+    clucene.addDocument(docId, doc, indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
-        test.equal(docsReplaced, 0);
         test.done();
     });
 };
@@ -143,10 +135,9 @@ exports['add doc3 for type test'] = function (test) {
     doc.addField('_type', 'contact', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
     doc.addField('timestamp', '1293765885000', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
 
-    clucene.addDocument(docId, doc, indexPath, function(err, indexTime, docsReplaced) {
+    clucene.addDocument(docId, doc, indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
-        test.equal(docsReplaced, 0);
         test.done();
     });
 };
@@ -162,10 +153,9 @@ exports['ensure 3 docs exist for type test'] = function (test) {
 };
  
 exports['delete all docs of type'] = function (test) {        
-    clucene.deleteDocumentsByType('contact', indexPath, function(err, indexTime, docsDeleted) {
+    clucene.deleteDocumentsByType('contact', indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
-        test.equal(docsDeleted, 3);
         test.done();
     });
 };
@@ -179,6 +169,13 @@ exports['ensure deleted docs of type are all gone'] = function (test) {
         test.done();
     });
 };
+
+exports['the index can be optimized'] = function(test) {
+    clucene.optimize(indexPath, function(err) {
+        test.equal(err, null);
+        test.done();
+    });
+}
 
 function is(type, obj) {
     var clas = Object.prototype.toString.call(obj).slice(8, -1);

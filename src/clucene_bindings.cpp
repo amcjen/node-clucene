@@ -577,17 +577,20 @@ public:
         try {
             reader = IndexReader::open(baton->index.c_str());
         } catch (CLuceneError& E) {
-          baton->error.assign(E.what());
-          return 0;
+            baton->error.assign(E.what());
+            return 0;
         } catch(...) {
-          baton->error = "Got an unknown exception";
-          return 0;
+            baton->error = "Got an unknown exception";
+            return 0;
         }
+        /*
         IndexReader* newreader = reader->reopen();
         if ( newreader != reader ) {
             delete reader;
             reader = newreader;
-        }
+        }*/
+
+        
         IndexSearcher s(reader);
 
         try {
@@ -618,12 +621,15 @@ public:
                 baton->docs.push_back(newDoc);
             }
             baton->searchTime = (Misc::currentTimeMillis() - start);
+            reader->close();
         } catch (CLuceneError& E) {
+          reader->close();
           baton->error.assign(E.what());
         } catch(...) {
+          reader->close();
           baton->error = "Got an unknown exception";
         }
-
+        
         return 0;
     }
 
@@ -668,7 +674,6 @@ public:
         }
         
         baton->callback.Dispose();
-
         delete baton;
 
         return 0;

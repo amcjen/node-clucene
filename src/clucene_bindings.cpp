@@ -220,7 +220,7 @@ public:
           // To bypass a possible exception (we have no idea what we will be indexing...)
           writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
           // Turn this off to make indexing faster; we'll turn it on later before optimizing
-          //writer->setUseCompoundFile(false);
+          writer->setUseCompoundFile(false);
           uint64_t start = Misc::currentTimeMillis();
 
           // replace document._id if it's also set in the document itself
@@ -722,7 +722,7 @@ public:
         
         standard::StandardAnalyzer an;
         IndexWriter* writer = new IndexWriter(baton->index.c_str(), &an, needsCreation);
-        writer->setUseCompoundFile(true);
+        writer->setUseCompoundFile(false);
         writer->optimize();
 
         writer->close();

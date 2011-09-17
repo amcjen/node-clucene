@@ -124,6 +124,46 @@ class Lucene : public ObjectWrap {
     
 private:
     int m_count;
+    typedef std::map<std::string,IndexReader*> IndexReaderMap;
+    IndexReaderMap readers_;
+    
+private:
+    IndexReader* get_reader(const std::string &index, std::string &error) {
+        IndexReader* reader = 0;
+        printf("Index: %s\n", index.c_str());
+        try {
+            IndexReaderMap::iterator it = readers_.find(index);
+            if (it == readers_.end()) {
+                printf("Open: %s\n", index.c_str());
+                reader = IndexReader::open(index.c_str());
+            } else {
+                printf("Reopen: %s\n", index.c_str());
+                reader = it->second;
+                if (IndexReader::isLocked(index.c_str())) {
+                    printf("Locked!: %s\n", index.c_str());
+                }
+                IndexReader* newreader = reader->reopen();
+                if (newreader != reader) {
+                    printf("Newreader != reader: %s\n", index.c_str());
+                    //reader->close();
+                    _CLDELETE(reader);
+                    reader = newreader;
+                }
+            }
+            printf("Finished opening: %s\n", index.c_str());
+            readers_[index] = reader;
+
+        } catch (CLuceneError& E) {
+            printf("get_reader Exception:");
+            error.assign(E.what());
+            return reader;
+        } catch(...) {
+            error = "Got an unknown exception";
+            printf("get_reader Exception:");
+            return reader;
+        }
+        return reader;
+    }
 public:
 
     static void Init(Handle<Object> target) {
@@ -573,23 +613,11 @@ public:
         uint64_t start = Misc::currentTimeMillis();
         
         standard::StandardAnalyzer analyzer;
-        IndexReader* reader = 0;
-        try {
-            reader = IndexReader::open(baton->index.c_str());
-        } catch (CLuceneError& E) {
-            baton->error.assign(E.what());
-            return 0;
-        } catch(...) {
-            baton->error = "Got an unknown exception";
+        IndexReader* reader = baton->lucene->get_reader(baton->index, baton->error);
+        
+        if (!baton->error.empty()) {
             return 0;
         }
-        /*
-        IndexReader* newreader = reader->reopen();
-        if ( newreader != reader ) {
-            delete reader;
-            reader = newreader;
-        }*/
-
         
         IndexSearcher s(reader);
 
@@ -621,12 +649,9 @@ public:
                 baton->docs.push_back(newDoc);
             }
             baton->searchTime = (Misc::currentTimeMillis() - start);
-            reader->close();
         } catch (CLuceneError& E) {
-          reader->close();
           baton->error.assign(E.what());
         } catch(...) {
-          reader->close();
           baton->error = "Got an unknown exception";
         }
         
@@ -673,7 +698,7 @@ public:
             FatalException(tryCatch);
         }
         
-        baton->callback.Dispose();
+        baton->callback.Dispose();  
         delete baton;
 
         return 0;

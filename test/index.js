@@ -142,7 +142,7 @@ exports['add doc3 for type test'] = function (test) {
     });
 };
 
-exports['ensure 3 docs exist for type test'] = function (test) {     
+exports['ensure 3 docs exist for type test'] = function (test) {  
     clucene.search(indexPath, '_type:"contact"', function(err, results, searchTime) {
         test.equal(err, null);
         test.ok(is('Array', results));
@@ -175,7 +175,7 @@ exports['the index can be optimized'] = function(test) {
         test.equal(err, null);
         test.done();
     });
-}
+};
 
 function is(type, obj) {
     var clas = Object.prototype.toString.call(obj).slice(8, -1);

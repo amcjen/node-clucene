@@ -58,8 +58,7 @@ public:
         target->Set(String::NewSymbol("Document"), t->GetFunction());
     }
 
-    void setDocument(Document* doc) { doc_ = doc; }
-    Document* document() const { return doc_; }
+    Document* document() { return &doc_; }
 
     void Ref() { ObjectWrap::Ref(); }
     void Unref() { ObjectWrap::Unref(); }
@@ -108,14 +107,13 @@ protected:
         return scope.Close(Undefined());
     }
 
-    LuceneDocument() : ObjectWrap(), doc_(new Document) {
+    LuceneDocument() : ObjectWrap() {
     }
 
     ~LuceneDocument() {
-        delete doc_;
     }
 private:
-    Document* doc_;
+    Document doc_;
 };
 
 class Lucene : public ObjectWrap {
@@ -130,39 +128,46 @@ private:
 private:
     IndexReader* get_reader(const std::string &index, std::string &error) {
         IndexReader* reader = 0;
-        printf("Index: %s\n", index.c_str());
+        //printf("Index: %s\n", index.c_str());
         try {
             IndexReaderMap::iterator it = readers_.find(index);
             if (it == readers_.end()) {
-                printf("Open: %s\n", index.c_str());
+                //printf("Open: %s\n", index.c_str());
                 reader = IndexReader::open(index.c_str());
             } else {
-                printf("Reopen: %s\n", index.c_str());
+                //printf("Reopen: %s\n", index.c_str());
                 reader = it->second;
-                if (IndexReader::isLocked(index.c_str())) {
-                    printf("Locked!: %s\n", index.c_str());
-                }
                 IndexReader* newreader = reader->reopen();
                 if (newreader != reader) {
-                    printf("Newreader != reader: %s\n", index.c_str());
+                    //printf("Newreader != reader: %s\n", index.c_str());
                     //reader->close();
-                    _CLDELETE(reader);
+                    _CLLDELETE(reader);
                     reader = newreader;
                 }
             }
-            printf("Finished opening: %s\n", index.c_str());
+            //printf("Finished opening: %s\n", index.c_str());
             readers_[index] = reader;
 
         } catch (CLuceneError& E) {
-            printf("get_reader Exception:");
+            printf("get_reader Exception: %s\n", E.what());
             error.assign(E.what());
-            return reader;
         } catch(...) {
-            error = "Got an unknown exception";
+            error = "Got an unknown exception \n";
             printf("get_reader Exception:");
-            return reader;
         }
         return reader;
+    }
+
+    void close_reader(const std::string& index) {
+        IndexReader* reader = 0;
+        IndexReaderMap::iterator it = readers_.find(index);
+        if (it != readers_.end()) {
+            reader = it->second;
+            reader->close();
+            _CLLDELETE(reader);
+            reader = 0;
+            readers_.erase(index);
+        }
     }
 public:
 
@@ -198,8 +203,8 @@ public:
     struct index_baton_t {
         Lucene* lucene;         
         LuceneDocument* doc;
-        v8::String::Utf8Value* docID;
-        v8::String::Utf8Value* index;
+        std::string docID;
+        std::string index;
         Persistent<Function> callback;
         uint64_t indexTime;
         int32_t docCount;
@@ -223,9 +228,9 @@ public:
 
         index_baton_t* baton = new index_baton_t;
         baton->lucene = lucene;
-        baton->docID = new v8::String::Utf8Value(args[0]);
+        baton->docID.assign(*v8::String::Utf8Value(args[0]));
         baton->doc = ObjectWrap::Unwrap<LuceneDocument>(args[1]->ToObject());
-        baton->index = new v8::String::Utf8Value(args[2]);
+        baton->index.assign(*v8::String::Utf8Value(args[2]));
         baton->callback = Persistent<Function>::New(callback);
         baton->error.clear();
         
@@ -246,16 +251,19 @@ public:
         IndexWriter* writer = 0;
         
         try {
+          baton->lucene->close_reader(baton->index);
+
           bool needsCreation = true;
-          if (IndexReader::indexExists(*(*baton->index))) {
-              if (IndexReader::isLocked(*(*baton->index))) {
-                  IndexReader::unlock(*(*baton->index));
+          std::string error;
+          if (IndexReader::indexExists(baton->index.c_str())) {
+              if (IndexReader::isLocked(baton->index.c_str())) {
+                  IndexReader::unlock(baton->index.c_str());
               }
               needsCreation = false;
           }
           
           // We keep shared instances of the index modifiers because you can only have one per index
-          writer = new IndexWriter(*(*baton->index), &an, needsCreation);
+          writer = new IndexWriter(baton->index.c_str(), &an, needsCreation);
 
           // To bypass a possible exception (we have no idea what we will be indexing...)
           writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
@@ -266,12 +274,14 @@ public:
           // replace document._id if it's also set in the document itself
           TCHAR key[CL_MAX_DIR];
           STRCPY_AtoT(key, "_id", CL_MAX_DIR);
-          TCHAR* value = STRDUP_AtoT(*(*baton->docID));
+          TCHAR* value = STRDUP_AtoT(baton->docID.c_str());
           baton->doc->document()->removeFields(key);
           Field* field = new Field(key, value, Field::STORE_YES|Field::INDEX_UNTOKENIZED);
           baton->doc->document()->add(*field);
           
           Term* term = new Term(key, value);
+          
+          
           writer->updateDocument(term, baton->doc->document());
           _CLDECDELETE(term);
 
@@ -280,6 +290,8 @@ public:
           // Make the index use as little files as possible, and optimize it
           
           //writer->optimize();
+
+          baton->lucene->close_reader(baton->index);
 
           writer->close();
           delete writer;
@@ -324,7 +336,6 @@ public:
         }
 
         baton->callback.Dispose();
-        delete baton->index;
         delete baton;
         return 0;
     }
@@ -333,7 +344,7 @@ public:
     struct indexdelete_baton_t {
         Lucene* lucene;         
         v8::String::Utf8Value* docID;
-        v8::String::Utf8Value* index;
+        std::string index;
         Persistent<Function> callback;
         uint64_t indexTime;
         uint64_t docsDeleted;
@@ -356,7 +367,7 @@ public:
         indexdelete_baton_t* baton = new indexdelete_baton_t;
         baton->lucene = lucene;
         baton->docID = new v8::String::Utf8Value(args[0]);
-        baton->index = new v8::String::Utf8Value(args[1]);
+        baton->index = *v8::String::Utf8Value(args[1]);
         baton->callback = Persistent<Function>::New(callback);
         baton->error.clear();
         
@@ -373,41 +384,29 @@ public:
         indexdelete_baton_t* baton = static_cast<indexdelete_baton_t*>(req->data);
 
         lucene::analysis::standard::StandardAnalyzer an;
-        IndexWriter* writer = 0;
         
-        try {
-          bool needsCreation = true;
-          if (IndexReader::indexExists(*(*baton->index))) {
-              if (IndexReader::isLocked(*(*baton->index))) {
-                  IndexReader::unlock(*(*baton->index));
-              }
-              needsCreation = false;
-          }
-          writer = new IndexWriter(*(*baton->index), &an, needsCreation);
-        
-          // To bypass a possible exception (we have no idea what we will be indexing...)
-          writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
-          uint64_t start = Misc::currentTimeMillis();
-          
-          TCHAR key[CL_MAX_DIR];
-          STRCPY_AtoT(key, "_id", CL_MAX_DIR);
-          TCHAR value[CL_MAX_DIR];
-          STRCPY_AtoT(value, *(*baton->docID), CL_MAX_DIR);
-          
-          writer->deleteDocuments(new Term(key, value));
-
-          baton->indexTime = (Misc::currentTimeMillis() - start);
-        } catch (CLuceneError& E) {
-          baton->error.assign(E.what());
-        } catch(...) {
-          baton->error = "Got an unknown exception";
+        IndexReader* reader = baton->lucene->get_reader(baton->index, baton->error);
+        if (!baton->error.empty()) {
+            return 0;
         }
-        
-        // Close and clean up
-       writer->close();
-        
-        delete writer;
-        writer = 0;
+
+        uint64_t start = Misc::currentTimeMillis();
+          
+        TCHAR key[CL_MAX_DIR];
+        STRCPY_AtoT(key, "_id", CL_MAX_DIR);
+        TCHAR value[CL_MAX_DIR];
+        STRCPY_AtoT(value, *(*baton->docID), CL_MAX_DIR);
+          
+        try {
+            reader->deleteDocuments(new Term(key, value));
+
+            baton->indexTime = (Misc::currentTimeMillis() - start);
+            baton->lucene->close_reader(baton->index);
+        } catch (CLuceneError& E) {
+            baton->error.assign(E.what());
+        } catch(...) {
+            baton->error = "Got an unknown exception";
+        }
         //(*(*baton->index), &an, false);
 
         return 0;
@@ -439,16 +438,14 @@ public:
         }
 
         baton->callback.Dispose();
-        delete baton->docID;
-        delete baton->index;
         delete baton;
         return 0;
     }
     
     struct indexdeletebytype_baton_t {
         Lucene* lucene;         
-        v8::String::Utf8Value* type;
-        v8::String::Utf8Value* index;
+        std::string type;
+        std::string index;
         Persistent<Function> callback;
         uint64_t indexTime;
         std::string error;
@@ -469,8 +466,8 @@ public:
 
         indexdeletebytype_baton_t* baton = new indexdeletebytype_baton_t;
         baton->lucene = lucene;
-        baton->type = new v8::String::Utf8Value(args[0]);
-        baton->index = new v8::String::Utf8Value(args[1]);
+        baton->type = *v8::String::Utf8Value(args[0]);
+        baton->index = *v8::String::Utf8Value(args[1]);
         baton->callback = Persistent<Function>::New(callback);
         baton->error.clear();
         lucene->Ref();
@@ -486,40 +483,28 @@ public:
         indexdeletebytype_baton_t* baton = static_cast<indexdeletebytype_baton_t*>(req->data);
 
         lucene::analysis::standard::StandardAnalyzer an;
-        IndexWriter* writer = 0;
         
         try {
-          bool needsCreation = true;
-          if (IndexReader::indexExists(*(*baton->index))) {
-              if (IndexReader::isLocked(*(*baton->index))) {
-                  IndexReader::unlock(*(*baton->index));
-              }
-              needsCreation = false;
+          IndexReader* reader = baton->lucene->get_reader(baton->index, baton->error);
+          if (!baton->error.empty()) {
+              return 0;
           }
-          writer = new IndexWriter(*(*baton->index), &an, needsCreation);
-        
-          // To bypass a possible exception (we have no idea what we will be indexing...)
-          writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
-          uint64_t start = Misc::currentTimeMillis();
           
+          uint64_t start = Misc::currentTimeMillis();
+
           TCHAR key[CL_MAX_DIR];
           STRCPY_AtoT(key, "_type", CL_MAX_DIR);
           TCHAR value[CL_MAX_DIR];
-          STRCPY_AtoT(value, *(*baton->type), CL_MAX_DIR);
-          writer->deleteDocuments(new Term(key, value));
+          STRCPY_AtoT(value, baton->type.c_str(), CL_MAX_DIR);
+          reader->deleteDocuments(new Term(key, value));
 
           baton->indexTime = (Misc::currentTimeMillis() - start);
+          baton->lucene->close_reader(baton->index);
         } catch (CLuceneError& E) {
           baton->error.assign(E.what());
         } catch(...) {
           baton->error = "Got an unknown exception";
         }
-        
-        // Close and clean up
-        writer->close();
-        
-        delete writer;
-        //(*(*baton->index), &an, false);
 
         return 0;
     }
@@ -550,8 +535,6 @@ public:
         }
 
         baton->callback.Dispose();
-        delete baton->type;
-        delete baton->index;
         delete baton;
         return 0;
     }
@@ -594,8 +577,8 @@ public:
 
         search_baton_t* baton = new search_baton_t;
         baton->lucene = lucene;
-        baton->index = *v8::String::Utf8Value(args[0]);
-        baton->search = *v8::String::Utf8Value(args[1]);
+        baton->index.assign(*v8::String::Utf8Value(args[0]));
+        baton->search.assign(*v8::String::Utf8Value(args[1]));
         baton->callback = Persistent<Function>::New(callback);
         baton->error.clear();
 
@@ -648,6 +631,9 @@ public:
                 }
                 baton->docs.push_back(newDoc);
             }
+            s.close();
+            _CLLDELETE(hits);
+            _CLLDELETE(q);
             baton->searchTime = (Misc::currentTimeMillis() - start);
         } catch (CLuceneError& E) {
           baton->error.assign(E.what());
@@ -742,6 +728,7 @@ public:
 
         try {
           
+        baton->lucene->close_reader(baton->index);
         bool needsCreation = true;
         if (IndexReader::indexExists(baton->index.c_str())) {
             if (IndexReader::isLocked(baton->index.c_str())) {

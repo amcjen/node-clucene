@@ -54,6 +54,7 @@ public:
         t->InstanceTemplate()->SetInternalFieldCount(1);
 
         NODE_SET_PROTOTYPE_METHOD(t, "addField", AddField);
+        NODE_SET_PROTOTYPE_METHOD(t, "clear", Clear);
 
         target->Set(String::NewSymbol("Document"), t->GetFunction());
     }
@@ -90,7 +91,7 @@ protected:
         TCHAR* value = STRDUP_AtoT(*String::Utf8Value(args[1]));
 
         try {
-            Field* field = new Field(key, value, args[2]->Int32Value());
+            Field* field = _CLNEW Field(key, value, args[2]->Int32Value());
             delete key;
             delete value;
             docWrapper->document()->add(*field);
@@ -104,6 +105,15 @@ protected:
             return scope.Close(ThrowException(Exception::Error(String::New("Unknown internal error while adding field"))));
         }
         
+        return scope.Close(Undefined());
+    }
+
+    static Handle<Value> Clear(const Arguments& args) {
+        HandleScope scope;
+
+        LuceneDocument* docWrapper = ObjectWrap::Unwrap<LuceneDocument>(args.This());
+        docWrapper->document()->clear();
+
         return scope.Close(Undefined());
     }
 
@@ -124,6 +134,9 @@ private:
     int m_count;
     typedef std::map<std::string,IndexReader*> IndexReaderMap;
     IndexReaderMap readers_;
+    typedef std::map<std::string, FSDirectory*> FSDirectoryMap;
+    FSDirectoryMap directories_;
+    IndexWriter* writer_;
     
 private:
     IndexReader* get_reader(const std::string &index, std::string &error) {
@@ -133,7 +146,15 @@ private:
             IndexReaderMap::iterator it = readers_.find(index);
             if (it == readers_.end()) {
                 //printf("Open: %s\n", index.c_str());
-                reader = IndexReader::open(index.c_str());
+                FSDirectory* directory = 0;
+                FSDirectoryMap::iterator dir_it = directories_.find(index);
+                if (dir_it == directories_.end()) {
+                    directory = FSDirectory::getDirectory(index.c_str());
+                    directories_[index] = directory;
+                } else {
+                    directory = dir_it->second;
+                }
+                reader = IndexReader::open(directory);
             } else {
                 //printf("Reopen: %s\n", index.c_str());
                 reader = it->second;
@@ -185,6 +206,7 @@ public:
         NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteDocumentsByType", DeleteDocumentsByTypeAsync);
         NODE_SET_PROTOTYPE_METHOD(s_ct, "search", SearchAsync);
         NODE_SET_PROTOTYPE_METHOD(s_ct, "optimize", OptimizeAsync);
+        NODE_SET_PROTOTYPE_METHOD(s_ct, "closeWriter", CloseWriter);
 
         target->Set(String::NewSymbol("Lucene"), s_ct->GetFunction());
     }
@@ -196,6 +218,7 @@ public:
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
         Lucene* lucene = new Lucene();
+        lucene->writer_ = 0;
         lucene->Wrap(args.This());
         return scope.Close(args.This());
     }
@@ -211,6 +234,21 @@ public:
         std::string error;
     };
     
+    static Handle<Value> CloseWriter(const Arguments& args) {
+        HandleScope scope;
+
+        REQ_OBJ_TYPE(args.This(), Lucene);
+        Lucene* lucene = ObjectWrap::Unwrap<Lucene>(args.This());
+
+        lucene->writer_->flush();
+        lucene->writer_->close(true);
+        delete lucene->writer_;
+        lucene->writer_ = 0;
+        printf("Deleted index writer\n");
+
+        return scope.Close(Undefined());
+    }
+
     // args:
     //   String* docID
     //   Document* doc
@@ -226,6 +264,7 @@ public:
         REQ_OBJ_TYPE(args.This(), Lucene);
         Lucene* lucene = ObjectWrap::Unwrap<Lucene>(args.This());
 
+        
         index_baton_t* baton = new index_baton_t;
         baton->lucene = lucene;
         baton->docID.assign(*v8::String::Utf8Value(args[0]));
@@ -237,6 +276,7 @@ public:
         lucene->Ref();
         baton->doc->Ref();
 
+
         eio_custom(EIO_Index, EIO_PRI_DEFAULT, EIO_AfterIndex, baton);
         ev_ref(EV_DEFAULT_UC);
 
@@ -245,12 +285,12 @@ public:
         
     
     static int EIO_Index(eio_req* req) {
+
         index_baton_t* baton = static_cast<index_baton_t*>(req->data);
 
         lucene::analysis::standard::StandardAnalyzer an;
-        static IndexWriter* writer = 0;
-        
-        try {
+
+      try {
           baton->lucene->close_reader(baton->index);
           baton->lucene->get_reader(baton->index, baton->error);
 
@@ -264,15 +304,17 @@ public:
           }
           
           // We keep shared instances of the index modifiers because you can only have one per index
-          if (writer == 0) {
-            writer = new IndexWriter(baton->index.c_str(), &an, needsCreation);
+          if (baton->lucene->writer_ == 0) {
+            baton->lucene->writer_ = new IndexWriter(baton->index.c_str(), &an, needsCreation);
+            printf("New index writer\n");
           }
 
-            writer->setRAMBufferSizeMB(5);
+            baton->lucene->writer_->setRAMBufferSizeMB(5);
+
           // To bypass a possible exception (we have no idea what we will be indexing...)
-          writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
+          baton->lucene->writer_->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
           // Turn this off to make indexing faster; we'll turn it on later before optimizing
-          writer->setUseCompoundFile(false);
+          baton->lucene->writer_->setUseCompoundFile(false);
           uint64_t start = Misc::currentTimeMillis();
 
           // replace document._id if it's also set in the document itself
@@ -280,12 +322,13 @@ public:
           STRCPY_AtoT(key, "_id", CL_MAX_DIR);
           TCHAR* value = STRDUP_AtoT(baton->docID.c_str());
           baton->doc->document()->removeFields(key);
-          Field* field = new Field(key, value, Field::STORE_YES|Field::INDEX_UNTOKENIZED);
+          Field* field = _CLNEW Field(key, value, Field::STORE_YES|Field::INDEX_UNTOKENIZED);
           baton->doc->document()->add(*field);
           
-          Term* term = new Term(key, value);
+          Term* term = _CLNEW Term(key, value);
           
-          writer->updateDocument(term, baton->doc->document());
+          //writer->updateDocument(term, baton->doc->document());
+          baton->lucene->writer_->addDocument(baton->doc->document());
           _CLDECDELETE(term);
 
           delete value;
@@ -308,7 +351,6 @@ public:
         }
         
         //(*(*baton->index), &an, false);
-
         return 0;
     }
 

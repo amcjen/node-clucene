@@ -248,10 +248,11 @@ public:
         index_baton_t* baton = static_cast<index_baton_t*>(req->data);
 
         lucene::analysis::standard::StandardAnalyzer an;
-        IndexWriter* writer = 0;
+        static IndexWriter* writer = 0;
         
         try {
           baton->lucene->close_reader(baton->index);
+          baton->lucene->get_reader(baton->index, baton->error);
 
           bool needsCreation = true;
           std::string error;
@@ -263,8 +264,11 @@ public:
           }
           
           // We keep shared instances of the index modifiers because you can only have one per index
-          writer = new IndexWriter(baton->index.c_str(), &an, needsCreation);
+          if (writer == 0) {
+            writer = new IndexWriter(baton->index.c_str(), &an, needsCreation);
+          }
 
+            writer->setRAMBufferSizeMB(5);
           // To bypass a possible exception (we have no idea what we will be indexing...)
           writer->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
           // Turn this off to make indexing faster; we'll turn it on later before optimizing
@@ -281,7 +285,6 @@ public:
           
           Term* term = new Term(key, value);
           
-          
           writer->updateDocument(term, baton->doc->document());
           _CLDECDELETE(term);
 
@@ -293,9 +296,9 @@ public:
 
           baton->lucene->close_reader(baton->index);
 
-          writer->close();
-          delete writer;
-          writer = 0;
+          //writer->close();
+          //delete writer;
+          //writer = 0;
 
           baton->indexTime = (Misc::currentTimeMillis() - start);
         } catch (CLuceneError& E) {

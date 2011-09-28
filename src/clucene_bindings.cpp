@@ -291,9 +291,6 @@ public:
         lucene::analysis::standard::StandardAnalyzer an;
 
       try {
-          baton->lucene->close_reader(baton->index);
-          baton->lucene->get_reader(baton->index, baton->error);
-
           bool needsCreation = true;
           std::string error;
           if (IndexReader::indexExists(baton->index.c_str())) {
@@ -327,8 +324,7 @@ public:
           
           Term* term = _CLNEW Term(key, value);
           
-          //writer->updateDocument(term, baton->doc->document());
-          baton->lucene->writer_->addDocument(baton->doc->document());
+          baton->lucene->writer_->updateDocument(term, baton->doc->document());
           _CLDECDELETE(term);
 
           delete value;

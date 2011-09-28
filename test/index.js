@@ -22,6 +22,7 @@ exports['add new document'] = function (test) {
     clucene.addDocument(docId, doc, indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
+        clucene.closeWriter();
         test.done();
     });
 };
@@ -49,6 +50,7 @@ exports['update existing document'] = function (test) {
     clucene.addDocument(docId, doc, indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
+        clucene.closeWriter();
         test.done();
     });
 };
@@ -123,6 +125,7 @@ exports['add doc2 for type test'] = function (test) {
     clucene.addDocument(docId, doc, indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
+        clucene.closeWriter();
         test.done();
     });
 };
@@ -138,6 +141,7 @@ exports['add doc3 for type test'] = function (test) {
     clucene.addDocument(docId, doc, indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
+        clucene.closeWriter();
         test.done();
     });
 };
@@ -145,11 +149,9 @@ exports['add doc3 for type test'] = function (test) {
 exports['ensure 3 docs exist for type test'] = function (test) {  
     clucene.search(indexPath, '_type:"contact"', function(err, results, searchTime) {
         test.equal(err, null);
-        /*
         test.ok(is('Array', results));
         test.ok(is('Number', searchTime));
         test.equal(results.length, 3);
-        */
         test.done();
     });
 };

@@ -17,10 +17,10 @@ if (path.existsSync(indexPath)) {
 var ctr = 0;
 async.whilst(
     function() {
-        return ctr < 100000;
+        return ctr < 5000;
     },
     function(callback) {
-        console.log("Adding " + ctr);
+        if (ctr % 1000 == 0) console.log("Added " + ctr);
     	var doc = new cl.Document();
     	testJson.newField = ctr;
     	doc.addField("json", JSON.stringify(testJson), cl.STORE_YES|cl.INDEX_TOKENIZED);
@@ -32,6 +32,7 @@ async.whilst(
         ctr++;
     },
     function(err) {
-        setTimeout(function() { console.log("It's all done, go check."); }, 10000);
+    	console.log("It's all done, go check.");
+        setTimeout(function() {  }, 10000);
     }
 );

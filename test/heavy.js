@@ -21,7 +21,7 @@ function doTest() {
 	var ctr = 0;
 	function nextStep() { ctr++; runAgain(); }
 	function runAgain() {
-		if (ctr > 5000) {
+		if (ctr > 100000) {
 			console.log("All done check the ram");
 			delete doc;
 			doc = null;

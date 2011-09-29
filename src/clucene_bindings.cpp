@@ -244,7 +244,7 @@ public:
         lucene->writer_->close(true);
         delete lucene->writer_;
         lucene->writer_ = 0;
-        printf("Deleted index writer\n");
+        //printf("Deleted index writer\n");
 
         return scope.Close(Undefined());
     }
@@ -303,7 +303,7 @@ public:
           // We keep shared instances of the index modifiers because you can only have one per index
           if (baton->lucene->writer_ == 0) {
             baton->lucene->writer_ = new IndexWriter(baton->index.c_str(), &an, needsCreation);
-            printf("New index writer\n");
+            //printf("New index writer\n");
           }
 
             baton->lucene->writer_->setRAMBufferSizeMB(5);
@@ -322,7 +322,7 @@ public:
           Field* field = _CLNEW Field(key, value, Field::STORE_YES|Field::INDEX_UNTOKENIZED);
           baton->doc->document()->add(*field);
           
-          Term* term = _CLNEW Term(key, value);
+          Term* term = new Term(key, value);
           
           baton->lucene->writer_->updateDocument(term, baton->doc->document());
           _CLDECDELETE(term);

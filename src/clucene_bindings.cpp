@@ -211,7 +211,7 @@ public:
         target->Set(String::NewSymbol("Lucene"), s_ct->GetFunction());
     }
 
-    Lucene() : ObjectWrap(), m_count(0) {}
+    Lucene() : ObjectWrap(), m_count(0), writer_(0) {}
 
     ~Lucene() { }
 
@@ -239,11 +239,13 @@ public:
 
         REQ_OBJ_TYPE(args.This(), Lucene);
         Lucene* lucene = ObjectWrap::Unwrap<Lucene>(args.This());
-
-        lucene->writer_->flush();
-        lucene->writer_->close(true);
-        delete lucene->writer_;
-        lucene->writer_ = 0;
+        
+        if (lucene->writer_ != 0) {
+            lucene->writer_->flush();
+            lucene->writer_->close(true);
+            delete lucene->writer_;
+            lucene->writer_ = 0;
+        }
         //printf("Deleted index writer\n");
 
         return scope.Close(Undefined());

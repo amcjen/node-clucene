@@ -137,6 +137,7 @@ private:
     typedef std::map<std::string, FSDirectory*> FSDirectoryMap;
     FSDirectoryMap directories_;
     IndexWriter* writer_;
+    lucene::analysis::standard::StandardAnalyzer* an_;
     
 private:
     IndexReader* get_reader(const std::string &index, std::string &error) {
@@ -211,7 +212,7 @@ public:
         target->Set(String::NewSymbol("Lucene"), s_ct->GetFunction());
     }
 
-    Lucene() : ObjectWrap(), m_count(0), writer_(0) {}
+    Lucene() : ObjectWrap(), m_count(0), writer_(0), an_(0) {}
 
     ~Lucene() { }
 
@@ -245,6 +246,9 @@ public:
             lucene->writer_->close(true);
             delete lucene->writer_;
             lucene->writer_ = 0;
+
+            delete lucene->an_;
+            lucene->an_ = 0;
         }
         //printf("Deleted index writer\n");
 
@@ -290,7 +294,7 @@ public:
 
         index_baton_t* baton = static_cast<index_baton_t*>(req->data);
 
-        lucene::analysis::standard::StandardAnalyzer an;
+        
 
       try {
           bool needsCreation = true;
@@ -304,16 +308,17 @@ public:
           
           // We keep shared instances of the index modifiers because you can only have one per index
           if (baton->lucene->writer_ == 0) {
-            baton->lucene->writer_ = new IndexWriter(baton->index.c_str(), &an, needsCreation);
+            baton->lucene->an_ = new lucene::analysis::standard::StandardAnalyzer;
+            baton->lucene->writer_ = new IndexWriter(baton->index.c_str(), baton->lucene->an_, needsCreation);
             //printf("New index writer\n");
-          }
-
             baton->lucene->writer_->setRAMBufferSizeMB(5);
 
-          // To bypass a possible exception (we have no idea what we will be indexing...)
-          baton->lucene->writer_->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
-          // Turn this off to make indexing faster; we'll turn it on later before optimizing
-          baton->lucene->writer_->setUseCompoundFile(false);
+              // To bypass a possible exception (we have no idea what we will be indexing...)
+              baton->lucene->writer_->setMaxFieldLength(0x7FFFFFFFL); // LUCENE_INT32_MAX_SHOULDBE
+              // Turn this off to make indexing faster; we'll turn it on later before optimizing
+              baton->lucene->writer_->setUseCompoundFile(false);
+          }
+            
           uint64_t start = Misc::currentTimeMillis();
 
           // replace document._id if it's also set in the document itself
@@ -325,7 +330,8 @@ public:
           baton->doc->document()->add(*field);
           
           Term* term = new Term(key, value);
-          
+          //_tprintf(_T("Fields: %S\n"), baton->doc->document()->toString());
+          //_tprintf(_T("Term k(%S) v(%S)\n"), key, value);   
           baton->lucene->writer_->updateDocument(term, baton->doc->document());
           _CLDECDELETE(term);
 
@@ -336,6 +342,12 @@ public:
           //writer->optimize();
 
           baton->lucene->close_reader(baton->index);
+          /*
+          baton->lucene->writer_->flush();
+            baton->lucene->writer_->close(true);
+            delete baton->lucene->writer_;
+            baton->lucene->writer_ = 0;
+        */
 
           //writer->close();
           //delete writer;

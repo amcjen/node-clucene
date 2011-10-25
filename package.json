@@ -8,7 +8,7 @@
     "Temas Muldowney (http://github.com/temas)",
     "Tyler Gillies (http://github.com/tjgillies)"
   ],
-  "engines": { "node": ">= 0.4.9" },
+  "engines": { "node": ">= 0.4.0" },
   "repository": {
         "type": "git",
         "url": "http://github.com/erictj/node-clucene.git"
@@ -19,7 +19,7 @@
      }
    ],
    "bugs": {
-     "web" : "http://github.com/erictj/node-clucene/issues"
+     "url" : "http://github.com/erictj/node-clucene/issues"
    },
    "scripts": {
      "install": "node-waf configure build",

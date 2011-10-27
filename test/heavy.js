@@ -47,7 +47,7 @@ function searchOnePass() {
 function deletePass() {
 	/*
 	ctr = 0;
-	console.log("Doing deletes"); 
+	console.log("Doing deletes");
 	function runStep() {
 		if (ctr > MAX_COUNTER) {
 			return nextTest(function() { console.log("All done"); });
@@ -61,7 +61,7 @@ function deletePass() {
 	}
 	runStep();
 	*/
-	 console.log("done"); setTimeout(function() {}, 360000); 
+	 console.log("done"); setTimeout(function() {}, 360000);
 }
 
 
@@ -108,5 +108,5 @@ if (process.argv.length >= 3) {
 }
 
 // Our startup ram check stop
-console.log("Check start size"); 
+console.log("Check start size");
 nextTest(indexPass);

@@ -94,7 +94,7 @@
         //converstion methods
         #define _tcstod strtod
         #define _tcstoi64 strtoll
-        #define _itot _i64tot 
+        #define _itot _i64tot
         #define _i64tot lltoa
 
     #endif

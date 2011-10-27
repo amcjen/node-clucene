@@ -11,7 +11,7 @@ exports['add new document'] = function (test) {
     if (path.existsSync(indexPath)) {
         wrench.rmdirSyncRecursive(indexPath);
     }
-    
+
     var doc = new cl.Document();
     var docId = '1';
 
@@ -146,7 +146,7 @@ exports['add doc3 for type test'] = function (test) {
     });
 };
 
-exports['ensure 3 docs exist for type test'] = function (test) {  
+exports['ensure 3 docs exist for type test'] = function (test) {
     clucene.search(indexPath, '_type:"contact"', function(err, results, searchTime) {
         test.equal(err, null);
         test.ok(is('Array', results));
@@ -156,15 +156,15 @@ exports['ensure 3 docs exist for type test'] = function (test) {
     });
 };
 
-exports['delete all docs of type'] = function (test) {        
+exports['delete all docs of type'] = function (test) {
     clucene.deleteDocumentsByType('contact', indexPath, function(err, indexTime) {
         test.equal(err, null);
         test.ok(is('Number', indexTime));
         test.done();
     });
 };
-    
-exports['ensure deleted docs of type are all gone'] = function (test) {            
+
+exports['ensure deleted docs of type are all gone'] = function (test) {
     clucene.search(indexPath, '_type:"contact"', function(err, results, searchTime) {
         test.equal(err, null);
         test.ok(is('Array', results));

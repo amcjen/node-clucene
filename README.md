@@ -58,3 +58,7 @@ Querying information out of the index
 REQUIREMENTS:
 =============
 node-clucene requires the CLucene library.	This is not included in this module, you must install it on your own.	 Instructions can be found here (http://clucene.sourceforge.net/)
+
+LICENSE:
+=============
+Apache/LGPL licensed (which is what the CLucene library is licensed with as well)

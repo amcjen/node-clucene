@@ -25,7 +25,7 @@ CL_NS_DEF(util)
     /**
      * Unlinks the given file, waits until dir_Exists is false. It makes maxAttempts
      * attempts to remove the file. If maxAttemps is less than 0 then unlimited
-     * count of attempts is done. 
+     * count of attempts is done.
      * Returns 1 if deleted and dir_Exists returns false
      * Returns 0 if deleted and dir_Exists returns still true
      * Returns -1 if file can not be deleted.

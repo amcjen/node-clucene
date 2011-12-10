@@ -284,13 +284,15 @@ public:
 
 
         eio_custom(EIO_Index, EIO_PRI_DEFAULT, EIO_AfterIndex, baton);
+
+
         ev_ref(EV_DEFAULT_UC);
 
         return scope.Close(Undefined());
     }
         
     
-    static int EIO_Index(eio_req* req) {
+    static void EIO_Index(eio_req* req) {
 
         index_baton_t* baton = static_cast<index_baton_t*>(req->data);
 
@@ -361,7 +363,7 @@ public:
         }
         
         //(*(*baton->index), &an, false);
-        return 0;
+        return;
     }
 
     static int EIO_AfterIndex(eio_req* req) {
@@ -435,14 +437,14 @@ public:
     }
         
     
-    static int EIO_DeleteDocument(eio_req* req) {
+    static void EIO_DeleteDocument(eio_req* req) {
         indexdelete_baton_t* baton = static_cast<indexdelete_baton_t*>(req->data);
 
         lucene::analysis::standard::StandardAnalyzer an;
         
         IndexReader* reader = baton->lucene->get_reader(baton->index, baton->error);
         if (!baton->error.empty()) {
-            return 0;
+            return;
         }
 
         uint64_t start = Misc::currentTimeMillis();
@@ -464,7 +466,7 @@ public:
         }
         //(*(*baton->index), &an, false);
 
-        return 0;
+        return;
     }
 
     static int EIO_AfterDeleteDocument(eio_req* req) {
@@ -534,7 +536,7 @@ public:
     }
         
     
-    static int EIO_DeleteDocumentsByType(eio_req* req) {
+    static void EIO_DeleteDocumentsByType(eio_req* req) {
         indexdeletebytype_baton_t* baton = static_cast<indexdeletebytype_baton_t*>(req->data);
 
         lucene::analysis::standard::StandardAnalyzer an;
@@ -542,7 +544,7 @@ public:
         try {
           IndexReader* reader = baton->lucene->get_reader(baton->index, baton->error);
           if (!baton->error.empty()) {
-              return 0;
+              return;
           }
           
           uint64_t start = Misc::currentTimeMillis();
@@ -561,7 +563,7 @@ public:
           baton->error = "Got an unknown exception";
         }
 
-        return 0;
+        return;
     }
 
     static int EIO_AfterDeleteDocumentsByType(eio_req* req) {
@@ -645,7 +647,7 @@ public:
         return scope.Close(Undefined());
     }
 
-    static int EIO_Search(eio_req* req)
+    static void EIO_Search(eio_req* req)
     {
         search_baton_t* baton = static_cast<search_baton_t*>(req->data);
         uint64_t start = Misc::currentTimeMillis();
@@ -654,7 +656,7 @@ public:
         IndexReader* reader = baton->lucene->get_reader(baton->index, baton->error);
         
         if (!baton->error.empty()) {
-            return 0;
+            return;
         }
         
         IndexSearcher s(reader);
@@ -696,7 +698,7 @@ public:
           baton->error = "Got an unknown exception";
         }
         
-        return 0;
+        return;
     }
 
     static int EIO_AfterSearch(eio_req* req)
@@ -777,7 +779,7 @@ public:
         return scope.Close(Undefined());
     }
 
-    static int EIO_Optimize(eio_req* req)
+    static void EIO_Optimize(eio_req* req)
     {
         optimize_baton_t* baton = static_cast<optimize_baton_t*>(req->data);
 
@@ -805,7 +807,7 @@ public:
           baton->error = "Got an unknown exception";
         }
 
-        return 0;
+        return;
     }
 
     static int EIO_AfterOptimize(eio_req* req)

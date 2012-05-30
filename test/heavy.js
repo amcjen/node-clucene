@@ -8,7 +8,7 @@ var clucene = new cl.Lucene();
 
 var indexPath = './heavy.index';
 
-var testJson = JSON.parse(fs.readFileSync("./test/facebook.json"));
+var testJson = JSON.parse(fs.readFileSync("./facebook.json"));
 
 if (path.existsSync(indexPath)) {
     wrench.rmdirSyncRecursive(indexPath);

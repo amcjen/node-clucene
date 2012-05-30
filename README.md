@@ -6,7 +6,7 @@ CLucene is based on a port of Lucene 2.3.	 Unfortunately, there's been a lot of 
 
 Right now, adding a document with the same docId will *replace* the older document in the index that has the same docId.  This is intentional, and makes document updating simple.  In the future, this will probably get refactored into a separate updateDocument() method call instead, and revert addDocument() back to adding only.
 
-This library begun as a project from Tyler Gillies (http://github.com/tjgillies/node-lucene).	 Mad props to him for getting this library bootstrapped and running!
+This library began as a project from Tyler Gillies (http://github.com/tjgillies/node-lucene).	 Mad props to him for getting this library bootstrapped and running!
 
 
 HOW IT WORKS:
@@ -14,45 +14,73 @@ HOW IT WORKS:
 
 Indexing information into the index
 -------------------------------
-		var cl = require('clucene').CLucene;
-		var doc = new cl.Document();
-		
-		doc.addField('name', 'Eric Jennings', cl.Store.STORE_YES|cl.Index.INDEX_TOKENIZED);
-		doc.addField('timestamp', 'Eric Jennings', cl.Store.STORE_YES|cl.Index.INDEX_UNTOKENIZED);
-		
-		lucene.addDocument(docId, doc, '/path/where/to/store/index', function(err, indexTime, docsReplaced) {
-				if (err) {
-						console.log('Error indexing document: ' + err);
-				}
-				
-				console.log('Indexed document in ' + indexTime + ' ms');
-				
-				if (docsReplaced > 0) {
-						console.log('Updated ' + docsReplaced + ' existing document(s)');
-				}
-		});
+```javascript
+var cl = require('clucene').CLucene,
+    clucene = new cl.Lucene();
+    
+var indexPath = './test.index',
+    data = [ {'name': 'Eric Jennings', 'timestamp': '1293765885000'},
+             {'name': 'Thomas Anderson', 'timestamp': '129555555555555'} ];
+
+var addItem = function(contact, index) {
+    var doc = new cl.Document(),
+        docId = index;
+    
+    doc.addField('name', contact.name, cl.STORE_YES|cl.INDEX_TOKENIZED);
+    doc.addField('_type', 'contact', cl.STORE_YES|cl.INDEX_UNTOKENIZED);
+    doc.addField('timestamp', contact.timestamp, cl.STORE_YES|cl.INDEX_UNTOKENIZED);
+
+    clucene.addDocument(docId, doc, indexPath, function(err, indexTime, docsReplaced) {
+        if (err) {
+            console.log('Error indexing document: ' + err);
+        }
+
+        console.log('Indexed document in ' + indexTime + ' ms');
+
+        if (docsReplaced > 0) {
+            console.log('Updated ' + docsReplaced + ' existing document(s)');
+        }
+        
+        clucene.closeWriter();
+    });
+}
+
+var i = 0,
+    m = setInterval(function () {
+    addItem(data[i], (i - 1).toString(10));
+    i += 1;
+    if (i >= data.length) {
+        clearInterval(m);
+    }
+}, 500);
+```
 
 
 Querying information out of the index
 -------------------------------
-		var cl = require('./clucene').CLucene;
-		var lucene = new cl.Lucene();
-		var util = require('util');
-		
-		var queryTerm = 'name:Eri*'
+```javascript
+var cl = require('clucene').CLucene,
+    clucene = new cl.Lucene();
 
-		lucene.search('/path/where/index/stored', queryTerm, function(err, results) {
-				if (err) {
-						console.log('Search error: ' + err);
-						return;
-				}
-				
-				console.log('Search results: ');
-				
-				for (var i=0; i<results.length; i++) {
-					console.log(results[i]);
-				}
-		});
+var indexPath = './test.index';
+
+var queryTerm = 'name:jenn*';
+
+clucene.search(indexPath, queryTerm, function(err, results, searchTime) {
+    if (err) {
+        console.log('Search error: ' + err);
+        return;
+    }
+
+    console.log('Search results: ');
+
+    for (var i=0; i<results.length; i++) {
+        console.log(results[i]);
+    }
+    
+    console.log('Searched in ' + searchTime + ' ms');
+});
+```
 		
 
 REQUIREMENTS:

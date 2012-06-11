@@ -1,4 +1,4 @@
-var clucene = require("./build/default/clucene");
+var clucene = require("./build/Release/clucene.node");
 
 clucene.STORE_YES = 1;
 clucene.STORE_NO = 2;

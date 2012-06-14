@@ -689,6 +689,8 @@ public:
                 baton->docs.push_back(newDoc);
             }
             s.close();
+            reader->close();
+            delete reader;
             _CLLDELETE(hits);
             _CLLDELETE(q);
             baton->searchTime = (Misc::currentTimeMillis() - start);

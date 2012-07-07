@@ -8,7 +8,7 @@ var clucene = new cl.Lucene();
 var indexPath = './test.index';
 
 exports['add new document'] = function (test) {
-    if (path.existsSync(indexPath)) {
+    if (fs.existsSync(indexPath)) {
         wrench.rmdirSyncRecursive(indexPath);
     }
     

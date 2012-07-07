@@ -10,7 +10,7 @@ var indexPath = './heavy.index';
 
 var testJson = JSON.parse(fs.readFileSync("./test/facebook.json"));
 
-if (path.existsSync(indexPath)) {
+if (fs.existsSync(indexPath)) {
     wrench.rmdirSyncRecursive(indexPath);
 }
 

@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/erictj/node-clucene.png)](http://travis-ci.org/erictj/node-clucene)
 OVERVIEW 
 =========
 node-clucene is a native Node.js module that wraps up the CLucene library.	CLucene is a C++ port of the ubiquitous Java Lucene library.	The Lucene ecosystem is vibrant, and lots of great code has come out of it.	 However, for those who do not wish to run a JVM-based information retrieval system, CLucene makes a lot of sense.
